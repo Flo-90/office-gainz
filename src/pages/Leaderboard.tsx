@@ -378,8 +378,8 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-2 rounded-full border border-slate-800 bg-slate-950 p-1">
+        <div className="mt-4 flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="inline-flex gap-2 rounded-full border border-slate-800 bg-slate-950 p-1">
             {leaderboardModes.map((option) => (
               <button
                 key={option.value}
