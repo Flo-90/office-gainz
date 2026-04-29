@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { appCopy } from '../lib/copy'
 
 export default function LoginPage() {
   const { session, signInWithGoogle, error } = useAuth()
@@ -27,13 +28,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-slate-800 bg-slate-900/40 p-8 shadow-xl shadow-black/30">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-300">
-            OfficeGainz
+            {appCopy.login.eyebrow}
           </p>
-          <h1 className="mt-3 text-3xl font-semibold">
-            Team fitness, zero fuss.
-          </h1>
+          <h1 className="mt-3 text-3xl font-semibold">{appCopy.login.title}</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Log reps, climb the leaderboard, and keep your remote crew moving.
+            {appCopy.login.subtitle}
           </p>
         </div>
 
@@ -43,7 +42,9 @@ export default function LoginPage() {
           className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
           disabled={loading}
         >
-          {loading ? 'Opening Google…' : 'Continue with Google'}
+          {loading
+            ? appCopy.login.openingGoogle
+            : appCopy.login.continueWithGoogle}
         </button>
 
         {error ? (

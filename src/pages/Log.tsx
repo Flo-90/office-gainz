@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import NotificationSettingsCard from '../components/NotificationSettingsCard'
 import { useAuth } from '../contexts/useAuth'
 import { fetchExercises, fetchUserTotal, logEntry } from '../lib/api'
+import { appCopy } from '../lib/copy'
 import { supabase } from '../lib/supabaseClient'
 import { startOfDay } from '../lib/time'
 import type { Exercise } from '../lib/types'
@@ -30,7 +32,9 @@ export default function LogPage() {
       setTodayTotal(total)
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load log data.')
+      setError(
+        err instanceof Error ? err.message : appCopy.logPage.loadError,
+      )
     } finally {
       setLoading(false)
     }
@@ -70,7 +74,7 @@ export default function LogPage() {
     if (!userId || !activeExercise) return
     const repsValue = Number(reps)
     if (!Number.isFinite(repsValue) || repsValue <= 0) {
-      setError('Reps need to be a positive number.')
+      setError(appCopy.logPage.invalidRepsError)
       return
     }
     setSaving(true)
@@ -81,7 +85,7 @@ export default function LogPage() {
       setError(null)
       await refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log reps.')
+      setError(err instanceof Error ? err.message : appCopy.logPage.saveError)
     } finally {
       setSaving(false)
     }
@@ -89,38 +93,40 @@ export default function LogPage() {
 
   const logHint = useMemo(() => {
     if (!activeExercise) return ''
-    return `Log ${activeExercise.name}`
+    return appCopy.logPage.buildLogHint(activeExercise.name)
   }, [activeExercise])
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-800 bg-gradient-to-br from-emerald-500/20 via-slate-900/70 to-slate-900 px-6 py-6 shadow-lg shadow-black/30">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200">
-          Today
+          {appCopy.logPage.todayLabel}
         </p>
         <h2 className="mt-3 text-4xl font-semibold">
-          {formatter.format(todayTotal)} reps
+          {formatter.format(todayTotal)} {appCopy.common.repsLabel}
         </h2>
         <p className="mt-2 text-sm text-slate-300">
-          Every set counts. Drop a quick log below.
+          {appCopy.logPage.summaryDescription}
         </p>
       </section>
 
+      <NotificationSettingsCard />
+
       <section>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Quick log</h3>
+          <h3 className="text-lg font-semibold">{appCopy.logPage.quickLogTitle}</h3>
           <span className="text-xs text-slate-400">
-            Tap • Type • Save
+            {appCopy.logPage.quickLogHint}
           </span>
         </div>
 
         {loading ? (
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-6 text-sm text-slate-400">
-            Loading your exercises…
+            {appCopy.logPage.loadingExercises}
           </div>
         ) : exercises.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-6 text-sm text-slate-400">
-            No exercises yet. Head to Exercises to add your first one.
+            {appCopy.logPage.noExercises}
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -132,7 +138,7 @@ export default function LogPage() {
                 className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4 text-left text-sm font-semibold transition hover:border-emerald-400/60 hover:text-emerald-200"
               >
                 {exercise.name}
-                <span className="text-xs text-slate-500">Log</span>
+                <span className="text-xs text-slate-500">{appCopy.logPage.logAction}</span>
               </button>
             ))}
           </div>
@@ -155,11 +161,11 @@ export default function LogPage() {
                 onClick={() => setActiveExercise(null)}
                 className="text-sm text-slate-400 hover:text-slate-200"
               >
-                Close
+                {appCopy.common.close}
               </button>
             </div>
             <label className="mt-4 block text-sm text-slate-400">
-              Reps
+              {appCopy.logPage.repsFieldLabel}
             </label>
             <input
               type="number"
@@ -174,7 +180,9 @@ export default function LogPage() {
               disabled={saving}
               className="mt-4 w-full rounded-full bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {saving ? 'Saving…' : 'Save reps'}
+              {saving
+                ? appCopy.logPage.savingButton
+                : appCopy.logPage.saveButton}
             </button>
           </div>
         </div>

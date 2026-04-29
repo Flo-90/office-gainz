@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/useAuth'
 import { fetchLeaderboard } from '../lib/api'
+import { appCopy } from '../lib/copy'
 import { supabase } from '../lib/supabaseClient'
 import type { LeaderboardRow, Timeframe } from '../lib/types'
 
 const formatter = new Intl.NumberFormat()
 
 const timeframeOptions: Array<{ value: Timeframe; label: string }> = [
-  { value: 'today', label: 'Today' },
-  { value: 'week', label: 'This Week' },
-  { value: 'all', label: 'All Time' },
+  { value: 'today', label: appCopy.leaderboardPage.timeframes.today },
+  { value: 'week', label: appCopy.leaderboardPage.timeframes.week },
+  { value: 'all', label: appCopy.leaderboardPage.timeframes.all },
 ]
 
 export default function LeaderboardPage() {
@@ -27,7 +28,7 @@ export default function LeaderboardPage() {
       setError(null)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load leaderboard.',
+        err instanceof Error ? err.message : appCopy.leaderboardPage.loadError,
       )
     } finally {
       setLoading(false)
@@ -68,9 +69,9 @@ export default function LeaderboardPage() {
       <section className="rounded-3xl border border-slate-800 bg-slate-900/60 px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold">Leaderboard</h2>
+            <h2 className="text-2xl font-semibold">{appCopy.leaderboardPage.title}</h2>
             <p className="text-sm text-slate-400">
-              Cheer each other on and chase that top spot.
+              {appCopy.leaderboardPage.subtitle}
             </p>
           </div>
           <div className="flex gap-2 rounded-full border border-slate-800 bg-slate-950 p-1">
@@ -93,7 +94,7 @@ export default function LeaderboardPage() {
         </div>
         {currentRank ? (
           <p className="mt-4 text-sm text-emerald-200">
-            You’re currently ranked #{currentRank}.
+            {appCopy.leaderboardPage.currentRank(currentRank)}
           </p>
         ) : null}
       </section>
@@ -101,11 +102,11 @@ export default function LeaderboardPage() {
       <section className="rounded-3xl border border-slate-800 bg-slate-900/40">
         {loading ? (
           <div className="px-6 py-6 text-sm text-slate-400">
-            Calculating the latest reps…
+            {appCopy.leaderboardPage.loading}
           </div>
         ) : rows.length === 0 ? (
           <div className="px-6 py-6 text-sm text-slate-400">
-            No reps logged yet for this timeframe.
+            {appCopy.leaderboardPage.emptyState}
           </div>
         ) : (
           <div className="divide-y divide-slate-800">
@@ -137,12 +138,12 @@ export default function LeaderboardPage() {
                     <div>
                       <p className="text-sm font-semibold">{row.name}</p>
                       {isCurrent ? (
-                        <p className="text-xs text-emerald-200">You</p>
+                        <p className="text-xs text-emerald-200">{appCopy.common.youLabel}</p>
                       ) : null}
                     </div>
                   </div>
                   <p className="text-sm font-semibold">
-                    {formatter.format(row.totalReps)} reps
+                    {formatter.format(row.totalReps)} {appCopy.common.repsLabel}
                   </p>
                 </div>
               )

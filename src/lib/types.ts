@@ -28,4 +28,17 @@ export type LeaderboardRow = {
   totalReps: number
 }
 
+export type NotificationPreferences = {
+  pushEnabled: boolean
+  dailyNudge15h: boolean
+  leaderboardOvertakenToday: boolean
+}
+
+export type PushState = {
+  publicKey: string | null
+  preferences: NotificationPreferences
+  hasActiveSubscription: boolean
+  subscriptionCount: number
+}
+
 export type Timeframe = 'today' | 'week' | 'all'

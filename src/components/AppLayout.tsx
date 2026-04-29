@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { appCopy } from '../lib/copy'
 
 const navItems = [
-  { to: '/', label: 'Log' },
-  { to: '/leaderboard', label: 'Leaderboard' },
-  { to: '/exercises', label: 'Exercises' },
+  { to: '/', label: appCopy.navigation.log },
+  { to: '/leaderboard', label: appCopy.navigation.leaderboard },
+  { to: '/exercises', label: appCopy.navigation.exercises },
 ]
 
 function initials(name: string) {
@@ -18,7 +19,8 @@ function initials(name: string) {
 export default function AppLayout() {
   const { profile, signOut, error } = useAuth()
 
-  const displayName = profile?.name ?? profile?.email ?? 'OfficeGainz Athlete'
+  const displayName =
+    profile?.name ?? profile?.email ?? appCopy.common.userFallbackName
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -26,9 +28,9 @@ export default function AppLayout() {
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              OfficeGainz
+              {appCopy.common.appName}
             </p>
-            <p className="text-lg font-semibold">Get those reps in 💪</p>
+            <p className="text-lg font-semibold">{appCopy.layout.tagline}</p>
           </div>
           <div className="flex items-center gap-3">
             {profile?.avatar_url ? (
@@ -49,14 +51,14 @@ export default function AppLayout() {
                 onClick={() => void signOut()}
                 className="text-xs text-slate-400 hover:text-slate-200"
               >
-                Sign out
+                {appCopy.common.signOut}
               </button>
             </div>
           </div>
         </div>
         {error ? (
           <div className="border-t border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-200">
-            Auth warning: {error}
+            {appCopy.layout.authWarningPrefix} {error}
           </div>
         ) : null}
       </header>
@@ -89,7 +91,7 @@ export default function AppLayout() {
             onClick={() => void signOut()}
             className="rounded-full px-4 py-2 text-sm font-semibold text-slate-400 hover:text-slate-200 sm:hidden"
           >
-            Sign out
+            {appCopy.common.signOut}
           </button>
         </div>
       </nav>

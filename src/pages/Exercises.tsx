@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../contexts/useAuth'
 import { createExercise, fetchExercises } from '../lib/api'
+import { appCopy } from '../lib/copy'
 import { supabase } from '../lib/supabaseClient'
 import type { Exercise } from '../lib/types'
 
@@ -21,7 +22,7 @@ export default function ExercisesPage() {
       setError(null)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load exercises.',
+        err instanceof Error ? err.message : appCopy.exercisesPage.loadError,
       )
     } finally {
       setLoading(false)
@@ -54,7 +55,7 @@ export default function ExercisesPage() {
     if (!userId) return
     const trimmed = name.trim()
     if (!trimmed) {
-      setError('Exercise name cannot be empty.')
+      setError(appCopy.exercisesPage.emptyNameError)
       return
     }
     setSaving(true)
@@ -65,7 +66,7 @@ export default function ExercisesPage() {
       await refresh()
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to add exercise.',
+        err instanceof Error ? err.message : appCopy.exercisesPage.addError,
       )
     } finally {
       setSaving(false)
@@ -75,16 +76,16 @@ export default function ExercisesPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-800 bg-slate-900/60 px-6 py-5">
-        <h2 className="text-2xl font-semibold">Exercises</h2>
+        <h2 className="text-2xl font-semibold">{appCopy.exercisesPage.title}</h2>
         <p className="text-sm text-slate-400">
-          Add anything your team loves, from squats to stretch breaks.
+          {appCopy.exercisesPage.subtitle}
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="New exercise name"
+            placeholder={appCopy.exercisesPage.inputPlaceholder}
             className="w-full flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none"
           />
           <button
@@ -93,7 +94,9 @@ export default function ExercisesPage() {
             disabled={saving}
             className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {saving ? 'Adding…' : 'Add exercise'}
+            {saving
+              ? appCopy.exercisesPage.addingButton
+              : appCopy.exercisesPage.addButton}
           </button>
         </div>
       </section>
@@ -101,11 +104,11 @@ export default function ExercisesPage() {
       <section className="rounded-3xl border border-slate-800 bg-slate-900/40">
         {loading ? (
           <div className="px-6 py-6 text-sm text-slate-400">
-            Loading the exercise list…
+            {appCopy.exercisesPage.loadingList}
           </div>
         ) : exercises.length === 0 ? (
           <div className="px-6 py-6 text-sm text-slate-400">
-            No exercises yet. Add the first one above.
+            {appCopy.exercisesPage.emptyState}
           </div>
         ) : (
           <ul className="divide-y divide-slate-800">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appCopy } from '../lib/copy'
 
 type BeforeInstallPromptEvent = Event & {
   readonly platforms: string[]
@@ -107,15 +108,15 @@ export default function InstallPrompt() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-              Install App
+              {appCopy.installPrompt.eyebrow}
             </p>
             {showPrompt ? (
               <p className="mt-2 text-sm text-slate-300">
-                Save OfficeGainz to your home screen for quick launches like a real app.
+                {appCopy.installPrompt.promptDescription}
               </p>
             ) : (
               <p className="mt-2 text-sm text-slate-300">
-                On iPhone, tap Share and then Add to Home Screen to save OfficeGainz as a web app.
+                {appCopy.installPrompt.iosDescription}
               </p>
             )}
           </div>
@@ -124,7 +125,7 @@ export default function InstallPrompt() {
             onClick={dismiss}
             className="text-sm text-slate-500 hover:text-slate-200"
           >
-            Close
+            {appCopy.common.close}
           </button>
         </div>
 
@@ -135,12 +136,12 @@ export default function InstallPrompt() {
               onClick={() => void install()}
               className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"
             >
-              Install
+              {appCopy.installPrompt.installButton}
             </button>
           ) : null}
           {iosHint ? (
             <p className="text-xs text-slate-400">
-              Safari only. The icon appears after adding it from the Share menu.
+              {appCopy.installPrompt.safariHint}
             </p>
           ) : null}
         </div>

@@ -42,3 +42,28 @@ For Google OAuth in production:
 - If you use a custom domain later, add that domain in both places as well.
 
 For direct links like `/leaderboard` and `/exercises`, Vercel needs an SPA rewrite to `index.html`. This repo includes that in `vercel.json`.
+
+## Push Notifications
+OfficeGainz now includes a challenge-focused web-push MVP with two notification types:
+- `daily_nudge_15h`
+- `leaderboard_overtaken_today`
+
+Supabase pieces in this repo:
+- database tables and hooks in `supabase/schema.sql`
+- edge functions in `supabase/functions/push-subscriptions` and `supabase/functions/push-dispatch`
+
+For a fresh Supabase project, deploy the edge functions and then run:
+
+```sql
+select public.configure_push_delivery(
+   '<your-supabase-project-url>',
+   '<your-legacy-anon-jwt>',
+   'mailto:notifications@example.com'
+);
+```
+
+Notes:
+- `configure_push_delivery()` stores the project URL, wires the hourly cron job, and gives DB-triggered edge-function calls a JWT they can use.
+- The dispatch function itself only sends the daily nudge when the current time is 15:00 in `Europe/Berlin`.
+- VAPID keys are generated lazily on first function use and stored in `push_delivery_config`.
+- Browser push registration needs the deployed app with an active service worker and a browser that supports the Push API.
