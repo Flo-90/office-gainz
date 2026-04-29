@@ -28,6 +28,12 @@ export type LeaderboardRow = {
   totalReps: number
 }
 
+export type UserExerciseBreakdownRow = {
+  exerciseId: string
+  exerciseName: string
+  totalReps: number
+}
+
 export type NotificationPreferences = {
   pushEnabled: boolean
   dailyNudge15h: boolean
@@ -40,5 +46,7 @@ export type PushState = {
   hasActiveSubscription: boolean
   subscriptionCount: number
 }
+
+export type LeaderboardMode = 'total' | 'exercise'
 
 export type Timeframe = 'today' | 'week' | 'all'

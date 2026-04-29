@@ -90,11 +90,41 @@ export const appCopy = {
       week: 'This Week',
       all: 'All Time',
     },
+    modes: {
+      total: 'Total',
+      exercise: 'By Exercise',
+    },
+    exerciseFilterLabel: 'Exercise',
+    tapUserHint: 'Tap a row to inspect where the reps come from.',
     loading: 'Calculating the latest reps…',
+    loadingExercises: 'Loading exercises…',
     emptyState: 'No reps logged yet for this timeframe.',
     loadError: 'Failed to load leaderboard.',
+    exerciseLoadError: 'Failed to load exercises for the leaderboard.',
+    breakdownLoadError: 'Failed to load the exercise mix.',
     currentRank(rank: number) {
       return `Dein Zündkerzen Rank ist: #${rank}.`
+    },
+    exerciseEmptyState(exerciseName: string) {
+      return `No reps logged for ${exerciseName} in this timeframe yet.`
+    },
+    noExercisesAvailable: 'No exercises yet. Add one first.',
+    userSheet: {
+      title: 'Rep breakdown',
+      currentSliceLabel: 'Current view',
+      rankLabel: 'Rank',
+      exerciseMixTitle: 'Exercise mix',
+      loading: 'Loading exercise mix…',
+      emptyState: 'No reps logged for this timeframe yet.',
+      buildSliceLabel(exerciseName: string | null) {
+        return exerciseName ? `${exerciseName} reps` : 'Total reps'
+      },
+      buildSubtitle(timeframeLabel: string) {
+        return `Where the reps come from in ${timeframeLabel.toLowerCase()}.`
+      },
+      buildContributionLabel(share: number) {
+        return `${share}% of reps`
+      },
     },
   },
   notifications: {

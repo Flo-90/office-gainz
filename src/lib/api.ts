@@ -1,7 +1,12 @@
 import { supabase } from './supabaseClient'
 import { formatSupabaseErrorMessage } from './supabaseErrors'
 import { startOfDay, startOfWeek } from './time'
-import type { Exercise, LeaderboardRow, Timeframe, UserProfile } from './types'
+import type {
+  Exercise,
+  LeaderboardRow,
+  Timeframe,
+  UserExerciseBreakdownRow,
+} from './types'
 
 type CacheOptions = {
   force?: boolean
@@ -18,18 +23,26 @@ type DataUpdateEvent = {
   resource: 'entries' | 'exercises'
 }
 
-type EntryRow = {
-  reps: number
+type LeaderboardRpcRow = {
   user_id: string
-  user:
-    | Pick<UserProfile, 'id' | 'name' | 'avatar_url'>
-    | Array<Pick<UserProfile, 'id' | 'name' | 'avatar_url'>>
-    | null
+  name: string | null
+  avatar_url: string | null
+  total_reps: number | string | null
+}
+
+type UserExerciseBreakdownRpcRow = {
+  exercise_id: string
+  exercise_name: string
+  total_reps: number | string | null
 }
 
 const exercisesCache = createCacheEntry<Exercise[]>()
 const userTotalsCache = new Map<string, CacheEntry<number>>()
-const leaderboardCache = new Map<Timeframe, CacheEntry<LeaderboardRow[]>>()
+const leaderboardCache = new Map<string, CacheEntry<LeaderboardRow[]>>()
+const userExerciseBreakdownCache = new Map<
+  string,
+  CacheEntry<UserExerciseBreakdownRow[]>
+>()
 const dataUpdateListeners = new Set<(event: DataUpdateEvent) => void>()
 
 function createCacheEntry<T>(): CacheEntry<T> {
@@ -92,12 +105,57 @@ function getUserTotalCacheEntry(userId: string, since?: Date) {
   return entry
 }
 
-function getLeaderboardCacheEntry(timeframe: Timeframe) {
-  let entry = leaderboardCache.get(timeframe)
+function getSinceForTimeframe(timeframe: Timeframe) {
+  if (timeframe === 'today') {
+    return startOfDay()
+  }
+
+  if (timeframe === 'week') {
+    return startOfWeek()
+  }
+
+  return undefined
+}
+
+function getLeaderboardCacheKey(
+  timeframe: Timeframe,
+  exerciseId?: string | null,
+) {
+  return `${timeframe}:${exerciseId ?? 'all'}`
+}
+
+function getLeaderboardCacheEntry(
+  timeframe: Timeframe,
+  exerciseId?: string | null,
+) {
+  const key = getLeaderboardCacheKey(timeframe, exerciseId)
+  let entry = leaderboardCache.get(key)
 
   if (!entry) {
     entry = createCacheEntry<LeaderboardRow[]>()
-    leaderboardCache.set(timeframe, entry)
+    leaderboardCache.set(key, entry)
+  }
+
+  return entry
+}
+
+function getUserExerciseBreakdownCacheKey(
+  userId: string,
+  timeframe: Timeframe,
+) {
+  return `${userId}:${timeframe}`
+}
+
+function getUserExerciseBreakdownCacheEntry(
+  userId: string,
+  timeframe: Timeframe,
+) {
+  const key = getUserExerciseBreakdownCacheKey(userId, timeframe)
+  let entry = userExerciseBreakdownCache.get(key)
+
+  if (!entry) {
+    entry = createCacheEntry<UserExerciseBreakdownRow[]>()
+    userExerciseBreakdownCache.set(key, entry)
   }
 
   return entry
@@ -115,6 +173,10 @@ function invalidateEntriesCache() {
   })
 
   leaderboardCache.forEach((entry) => {
+    entry.invalidated = true
+  })
+
+  userExerciseBreakdownCache.forEach((entry) => {
     entry.invalidated = true
   })
 }
@@ -137,8 +199,24 @@ export function getUserTotalSnapshot(userId: string, since?: Date) {
   return getCacheSnapshot(userTotalsCache.get(getUserTotalCacheKey(userId, since)))
 }
 
-export function getLeaderboardSnapshot(timeframe: Timeframe) {
-  return getCacheSnapshot(leaderboardCache.get(timeframe))
+export function getLeaderboardSnapshot(
+  timeframe: Timeframe,
+  exerciseId?: string | null,
+) {
+  return getCacheSnapshot(
+    leaderboardCache.get(getLeaderboardCacheKey(timeframe, exerciseId)),
+  )
+}
+
+export function getUserExerciseBreakdownSnapshot(
+  userId: string,
+  timeframe: Timeframe,
+) {
+  return getCacheSnapshot(
+    userExerciseBreakdownCache.get(
+      getUserExerciseBreakdownCacheKey(userId, timeframe),
+    ),
+  )
 }
 
 export function subscribeToDataUpdates(
@@ -244,51 +322,69 @@ export async function fetchUserTotal(
 
 export async function fetchLeaderboard(
   timeframe: Timeframe,
+  exerciseId?: string | null,
   options?: CacheOptions,
 ): Promise<LeaderboardRow[]> {
+  const since = getSinceForTimeframe(timeframe)
+
   return resolveCachedValue(
-    getLeaderboardCacheEntry(timeframe),
+    getLeaderboardCacheEntry(timeframe, exerciseId),
     async () => {
-      let query = supabase
-        .from('entries')
-        .select(
-          'reps, user_id, user:users!entries_user_id_fkey ( id, name, avatar_url )',
-        )
-
-      if (timeframe === 'today') {
-        query = query.gte('created_at', startOfDay().toISOString())
-      }
-
-      if (timeframe === 'week') {
-        query = query.gte('created_at', startOfWeek().toISOString())
-      }
-
-      const { data, error } = await query
-      if (error) throw new Error(formatSupabaseErrorMessage(error))
-
-      const totals = new Map<string, LeaderboardRow>()
-      ;(data as EntryRow[] | null)?.forEach((row) => {
-        const profile = Array.isArray(row.user) ? row.user[0] : row.user
-        if (!profile) return
-        const existing = totals.get(profile.id)
-        if (existing) {
-          existing.totalReps += row.reps
-        } else {
-          totals.set(profile.id, {
-            userId: profile.id,
-            name: profile.name ?? 'Mystery Lifter',
-            avatarUrl: profile.avatar_url ?? null,
-            totalReps: row.reps,
-          })
-        }
+      const { data, error } = await supabase.rpc('get_leaderboard_totals', {
+        filter_since: since?.toISOString() ?? null,
+        filter_exercise_id: exerciseId ?? null,
       })
 
-      return Array.from(totals.values()).sort((a, b) => {
+      if (error) throw new Error(formatSupabaseErrorMessage(error))
+
+      return ((data ?? []) as LeaderboardRpcRow[])
+        .map((row) => ({
+          userId: row.user_id,
+          name: row.name ?? 'Mystery Lifter',
+          avatarUrl: row.avatar_url ?? null,
+          totalReps: Number(row.total_reps ?? 0),
+        }))
+        .sort((a, b) => {
         if (b.totalReps !== a.totalReps) {
           return b.totalReps - a.totalReps
         }
         return a.name.localeCompare(b.name)
       })
+    },
+    options,
+  )
+}
+
+export async function fetchUserExerciseBreakdown(
+  userId: string,
+  timeframe: Timeframe,
+  options?: CacheOptions,
+): Promise<UserExerciseBreakdownRow[]> {
+  const since = getSinceForTimeframe(timeframe)
+
+  return resolveCachedValue(
+    getUserExerciseBreakdownCacheEntry(userId, timeframe),
+    async () => {
+      const { data, error } = await supabase.rpc('get_user_exercise_breakdown', {
+        filter_user_id: userId,
+        filter_since: since?.toISOString() ?? null,
+      })
+
+      if (error) throw new Error(formatSupabaseErrorMessage(error))
+
+      return ((data ?? []) as UserExerciseBreakdownRpcRow[])
+        .map((row) => ({
+          exerciseId: row.exercise_id,
+          exerciseName: row.exercise_name,
+          totalReps: Number(row.total_reps ?? 0),
+        }))
+        .sort((a, b) => {
+          if (b.totalReps !== a.totalReps) {
+            return b.totalReps - a.totalReps
+          }
+
+          return a.exerciseName.localeCompare(b.exerciseName)
+        })
     },
     options,
   )
