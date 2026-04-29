@@ -42,6 +42,14 @@ export const appCopy = {
     safariHint:
       'Safari only. The icon appears after adding it from the Share menu.',
   },
+  appUpdate: {
+    eyebrow: 'Update Ready',
+    title: 'A new version of OfficeGainz is available.',
+    description:
+      'Refresh once to pull the latest changes into the installed app.',
+    refreshButton: 'Refresh app',
+    laterButton: 'Later',
+  },
   logPage: {
     todayLabel: 'Today',
     summaryDescription: 'Disziplin schlägt Talent, jeden verdammten Tag.',

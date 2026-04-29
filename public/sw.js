@@ -1,4 +1,5 @@
-const CACHE_NAME = 'officegainz-static-v1'
+const BUILD_ID = new URL(self.location.href).searchParams.get('build') ?? 'v1'
+const CACHE_NAME = `officegainz-static-${BUILD_ID}`
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -15,6 +16,12 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)),
   )
   self.skipWaiting()
+})
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
 })
 
 self.addEventListener('activate', (event) => {

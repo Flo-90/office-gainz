@@ -4,12 +4,9 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthProvider.tsx'
+import { registerAppServiceWorker } from './lib/appUpdate.ts'
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js', { scope: '/' })
-  })
-}
+registerAppServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

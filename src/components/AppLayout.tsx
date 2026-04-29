@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import AppUpdateBanner from './AppUpdateBanner'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
 import { notifyEntriesChanged, notifyExercisesChanged } from '../lib/api'
@@ -160,6 +161,7 @@ export default function AppLayout() {
       </header>
 
       <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6">
+        <AppUpdateBanner />
         <Outlet />
       </main>
 
