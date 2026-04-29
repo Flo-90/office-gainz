@@ -121,12 +121,16 @@ export default function AppLayout() {
           notifyExercisesChanged()
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          refreshLiveData()
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [refreshLiveData])
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">

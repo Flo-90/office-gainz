@@ -65,7 +65,7 @@ function createCacheEntry<T>(): CacheEntry<T> {
 }
 
 function getCacheSnapshot<T>(entry?: CacheEntry<T>): T | null {
-  if (!entry?.hasValue) {
+  if (!entry?.hasValue || entry.invalidated) {
     return null
   }
 
