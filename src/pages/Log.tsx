@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../contexts/useAuth'
-import { fetchExercises, fetchUserTotal, logEntry } from '../lib/api'
+import {
+  fetchExercises,
+  fetchUserTotal,
+  getExercisesSnapshot,
+  getUserTotalSnapshot,
+  logEntry,
+  subscribeToDataUpdates,
+} from '../lib/api'
 import { appCopy } from '../lib/copy'
-import { supabase } from '../lib/supabaseClient'
 import { startOfDay } from '../lib/time'
 import type { Exercise } from '../lib/types'
 
@@ -24,9 +30,27 @@ function clampReps(value: number) {
 export default function LogPage() {
   const { session } = useAuth()
   const userId = session?.user.id
-  const [exercises, setExercises] = useState<Exercise[]>([])
-  const [todayTotal, setTodayTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const todayStart = useMemo(() => startOfDay(), [])
+  const [exercises, setExercises] = useState<Exercise[]>(
+    () => getExercisesSnapshot() ?? [],
+  )
+  const [todayTotal, setTodayTotal] = useState(() => {
+    if (!userId) {
+      return 0
+    }
+
+    return getUserTotalSnapshot(userId, todayStart) ?? 0
+  })
+  const [loading, setLoading] = useState(() => {
+    if (!userId) {
+      return true
+    }
+
+    return (
+      getExercisesSnapshot() === null ||
+      getUserTotalSnapshot(userId, todayStart) === null
+    )
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null)
@@ -34,13 +58,21 @@ export default function LogPage() {
   const wheelRef = useRef<HTMLDivElement | null>(null)
   const scrollTimeoutRef = useRef<number | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { force?: boolean }) => {
     if (!userId) return
-    setLoading(true)
+
+    const hasCachedData =
+      getExercisesSnapshot() !== null &&
+      getUserTotalSnapshot(userId, todayStart) !== null
+
+    if (!hasCachedData) {
+      setLoading(true)
+    }
+
     try {
       const [exerciseList, total] = await Promise.all([
-        fetchExercises(),
-        fetchUserTotal(userId, startOfDay()),
+        fetchExercises(options),
+        fetchUserTotal(userId, todayStart, options),
       ])
       setExercises(exerciseList)
       setTodayTotal(total)
@@ -52,7 +84,33 @@ export default function LogPage() {
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [todayStart, userId])
+
+  const refreshExercises = useCallback(async () => {
+    try {
+      const exerciseList = await fetchExercises({ force: true })
+      setExercises(exerciseList)
+      setError(null)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : appCopy.logPage.loadError,
+      )
+    }
+  }, [])
+
+  const refreshTodayTotal = useCallback(async () => {
+    if (!userId) return
+
+    try {
+      const total = await fetchUserTotal(userId, todayStart, { force: true })
+      setTodayTotal(total)
+      setError(null)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : appCopy.logPage.loadError,
+      )
+    }
+  }, [todayStart, userId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -60,29 +118,19 @@ export default function LogPage() {
   }, [refresh])
 
   useEffect(() => {
-    if (!userId) return
-    const channel = supabase
-      .channel('log-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'entries' },
-        () => {
-          void refresh()
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'exercises' },
-        () => {
-          void refresh()
-        },
-      )
-      .subscribe()
+    const unsubscribe = subscribeToDataUpdates((event) => {
+      if (event.resource === 'entries') {
+        void refreshTodayTotal()
+        return
+      }
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [refresh, userId])
+      if (event.resource === 'exercises') {
+        void refreshExercises()
+      }
+    })
+
+    return unsubscribe
+  }, [refreshExercises, refreshTodayTotal])
 
   useEffect(() => {
     return () => {
@@ -164,10 +212,10 @@ export default function LogPage() {
     setSaving(true)
     try {
       await logEntry(userId, activeExercise.id, repsValue)
+      setTodayTotal((current) => current + repsValue)
       setActiveExercise(null)
       setReps(10)
       setError(null)
-      await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : appCopy.logPage.saveError)
     } finally {

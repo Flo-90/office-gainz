@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/useAuth'
-import { fetchLeaderboard } from '../lib/api'
+import {
+  fetchLeaderboard,
+  getLeaderboardSnapshot,
+  subscribeToDataUpdates,
+} from '../lib/api'
 import { appCopy } from '../lib/copy'
-import { supabase } from '../lib/supabaseClient'
 import type { LeaderboardRow, Timeframe } from '../lib/types'
 
 const formatter = new Intl.NumberFormat()
@@ -16,14 +19,21 @@ const timeframeOptions: Array<{ value: Timeframe; label: string }> = [
 export default function LeaderboardPage() {
   const { session } = useAuth()
   const [timeframe, setTimeframe] = useState<Timeframe>('today')
-  const [rows, setRows] = useState<LeaderboardRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<LeaderboardRow[]>(
+    () => getLeaderboardSnapshot('today') ?? [],
+  )
+  const [loading, setLoading] = useState(
+    () => getLeaderboardSnapshot('today') === null,
+  )
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
+  const refresh = useCallback(async (options?: { force?: boolean }) => {
+    if (getLeaderboardSnapshot(timeframe) === null) {
+      setLoading(true)
+    }
+
     try {
-      const data = await fetchLeaderboard(timeframe)
+      const data = await fetchLeaderboard(timeframe, options)
       setRows(data)
       setError(null)
     } catch (err) {
@@ -35,26 +45,34 @@ export default function LeaderboardPage() {
     }
   }, [timeframe])
 
+  const handleTimeframeChange = (nextTimeframe: Timeframe) => {
+    setTimeframe(nextTimeframe)
+
+    const cachedRows = getLeaderboardSnapshot(nextTimeframe)
+
+    if (cachedRows !== null) {
+      setRows(cachedRows)
+      setLoading(false)
+      return
+    }
+
+    setRows([])
+    setLoading(true)
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
   }, [refresh])
 
   useEffect(() => {
-    const channel = supabase
-      .channel('leaderboard-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'entries' },
-        () => {
-          void refresh()
-        },
-      )
-      .subscribe()
+    const unsubscribe = subscribeToDataUpdates((event) => {
+      if (event.resource === 'entries') {
+        void refresh({ force: true })
+      }
+    })
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return unsubscribe
   }, [refresh])
 
   const currentUserId = session?.user.id
@@ -79,7 +97,7 @@ export default function LeaderboardPage() {
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setTimeframe(option.value)}
+                onClick={() => handleTimeframeChange(option.value)}
                 className={[
                   'rounded-full px-3 py-1 text-xs font-semibold transition',
                   timeframe === option.value

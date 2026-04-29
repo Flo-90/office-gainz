@@ -1,23 +1,34 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../contexts/useAuth'
-import { createExercise, fetchExercises } from '../lib/api'
+import {
+  createExercise,
+  fetchExercises,
+  getExercisesSnapshot,
+  subscribeToDataUpdates,
+} from '../lib/api'
 import { appCopy } from '../lib/copy'
-import { supabase } from '../lib/supabaseClient'
 import type { Exercise } from '../lib/types'
 
 export default function ExercisesPage() {
   const { session } = useAuth()
   const userId = session?.user.id
-  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [exercises, setExercises] = useState<Exercise[]>(
+    () => getExercisesSnapshot() ?? [],
+  )
   const [name, setName] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () => getExercisesSnapshot() === null,
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
+  const refresh = useCallback(async (options?: { force?: boolean }) => {
+    if (getExercisesSnapshot() === null) {
+      setLoading(true)
+    }
+
     try {
-      const data = await fetchExercises()
+      const data = await fetchExercises(options)
       setExercises(data)
       setError(null)
     } catch (err) {
@@ -35,20 +46,13 @@ export default function ExercisesPage() {
   }, [refresh])
 
   useEffect(() => {
-    const channel = supabase
-      .channel('exercise-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'exercises' },
-        () => {
-          void refresh()
-        },
-      )
-      .subscribe()
+    const unsubscribe = subscribeToDataUpdates((event) => {
+      if (event.resource === 'exercises') {
+        void refresh({ force: true })
+      }
+    })
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return unsubscribe
   }, [refresh])
 
   const handleAdd = async () => {
@@ -60,10 +64,14 @@ export default function ExercisesPage() {
     }
     setSaving(true)
     try {
-      await createExercise(trimmed, userId)
+      const createdExercise = await createExercise(trimmed, userId)
+      setExercises((current) =>
+        [...current.filter((exercise) => exercise.id !== createdExercise.id), createdExercise].sort(
+          (left, right) => left.name.localeCompare(right.name),
+        ),
+      )
       setName('')
       setError(null)
-      await refresh()
     } catch (err) {
       setError(
         err instanceof Error ? err.message : appCopy.exercisesPage.addError,

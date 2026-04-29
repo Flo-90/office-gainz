@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { notifyEntriesChanged, notifyExercisesChanged } from '../lib/api'
 import { appCopy } from '../lib/copy'
+import { supabase } from '../lib/supabaseClient'
 
 const navItems = [
   { to: '/', label: appCopy.navigation.log },
@@ -52,6 +54,30 @@ export default function AppLayout() {
   const closeProfileMenu = () => {
     setIsProfileMenuOpen(false)
   }
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('app-data-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'entries' },
+        () => {
+          notifyEntriesChanged()
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'exercises' },
+        () => {
+          notifyExercisesChanged()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
