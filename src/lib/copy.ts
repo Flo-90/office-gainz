@@ -46,11 +46,12 @@ export const appCopy = {
     todayLabel: 'Today',
     summaryDescription: 'Disziplin schlägt Talent, jeden verdammten Tag.',
     quickLogTitle: 'Quick log',
-    quickLogHint: 'Tap • Type • Save',
+    quickLogHint: 'Tap • Spin • Save',
     loadingExercises: 'Loading your exercises…',
     noExercises: 'No exercises yet. Head to Exercises to add your first one.',
     logAction: 'Log',
     repsFieldLabel: 'Reps',
+    wheelHint: 'Swipe the wheel or tap a preset to lock in your reps fast.',
     saveButton: 'Save reps',
     savingButton: 'Saving…',
     invalidRepsError: 'Reps need to be a positive number.',
@@ -58,6 +59,9 @@ export const appCopy = {
     saveError: 'Failed to log reps.',
     buildLogHint(exerciseName: string) {
       return `Log ${exerciseName}`
+    },
+    buildSaveButton(reps: number) {
+      return `Log ${reps} reps`
     },
   },
   settingsPage: {
