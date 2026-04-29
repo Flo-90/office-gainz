@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AppUpdateBanner from './AppUpdateBanner'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
@@ -24,6 +24,7 @@ export default function AppLayout() {
   const { profile, signOut, error } = useAuth()
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
+  const lastForegroundRefreshAtRef = useRef(0)
 
   const displayName =
     profile?.name ?? profile?.email ?? appCopy.common.userFallbackName
@@ -55,6 +56,53 @@ export default function AppLayout() {
   const closeProfileMenu = () => {
     setIsProfileMenuOpen(false)
   }
+
+  const refreshLiveData = useCallback(() => {
+    if (document.visibilityState === 'hidden') {
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastForegroundRefreshAtRef.current < 1500) {
+      return
+    }
+
+    lastForegroundRefreshAtRef.current = now
+    notifyEntriesChanged()
+    notifyExercisesChanged()
+  }, [])
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshLiveData()
+      }
+    }
+
+    const handleFocus = () => {
+      refreshLiveData()
+    }
+
+    const handleOnline = () => {
+      refreshLiveData()
+    }
+
+    const handlePageShow = () => {
+      refreshLiveData()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('pageshow', handlePageShow)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('pageshow', handlePageShow)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshLiveData])
 
   useEffect(() => {
     const channel = supabase

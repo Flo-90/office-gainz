@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../contexts/useAuth'
 import {
   fetchExercises,
+  fetchUserStreakSummary,
   fetchUserTotal,
   getExercisesSnapshot,
+  getUserStreakSummarySnapshot,
   getUserTotalSnapshot,
   logEntry,
   subscribeToDataUpdates,
 } from '../lib/api'
 import { appCopy } from '../lib/copy'
+import { getStreakTitle } from '../lib/streaks'
 import { startOfDay } from '../lib/time'
-import type { Exercise } from '../lib/types'
+import type { Exercise, StreakSummary } from '../lib/types'
 
 const formatter = new Intl.NumberFormat()
 const MIN_REPS = 1
@@ -27,6 +30,17 @@ function clampReps(value: number) {
   return Math.min(MAX_REPS, Math.max(MIN_REPS, value))
 }
 
+function createEmptyStreakSummary(userId: string): StreakSummary {
+  return {
+    userId,
+    currentStreak: 0,
+    longestStreak: 0,
+    lastActiveDate: null,
+    activeToday: false,
+    atRiskToday: false,
+  }
+}
+
 export default function LogPage() {
   const { session } = useAuth()
   const userId = session?.user.id
@@ -41,6 +55,13 @@ export default function LogPage() {
 
     return getUserTotalSnapshot(userId, todayStart) ?? 0
   })
+  const [streakSummary, setStreakSummary] = useState<StreakSummary | null>(() => {
+    if (!userId) {
+      return null
+    }
+
+    return getUserStreakSummarySnapshot(userId) ?? createEmptyStreakSummary(userId)
+  })
   const [loading, setLoading] = useState(() => {
     if (!userId) {
       return true
@@ -48,7 +69,8 @@ export default function LogPage() {
 
     return (
       getExercisesSnapshot() === null ||
-      getUserTotalSnapshot(userId, todayStart) === null
+      getUserTotalSnapshot(userId, todayStart) === null ||
+      getUserStreakSummarySnapshot(userId) === null
     )
   })
   const [saving, setSaving] = useState(false)
@@ -63,19 +85,22 @@ export default function LogPage() {
 
     const hasCachedData =
       getExercisesSnapshot() !== null &&
-      getUserTotalSnapshot(userId, todayStart) !== null
+      getUserTotalSnapshot(userId, todayStart) !== null &&
+      getUserStreakSummarySnapshot(userId) !== null
 
     if (!hasCachedData) {
       setLoading(true)
     }
 
     try {
-      const [exerciseList, total] = await Promise.all([
+      const [exerciseList, total, nextStreakSummary] = await Promise.all([
         fetchExercises(options),
         fetchUserTotal(userId, todayStart, options),
+        fetchUserStreakSummary(userId, options),
       ])
       setExercises(exerciseList)
       setTodayTotal(total)
+      setStreakSummary(nextStreakSummary)
       setError(null)
     } catch (err) {
       setError(
@@ -112,6 +137,22 @@ export default function LogPage() {
     }
   }, [todayStart, userId])
 
+  const refreshStreakSummary = useCallback(async () => {
+    if (!userId) return
+
+    try {
+      const nextStreakSummary = await fetchUserStreakSummary(userId, {
+        force: true,
+      })
+      setStreakSummary(nextStreakSummary)
+      setError(null)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : appCopy.logPage.loadError,
+      )
+    }
+  }, [userId])
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
@@ -121,6 +162,7 @@ export default function LogPage() {
     const unsubscribe = subscribeToDataUpdates((event) => {
       if (event.resource === 'entries') {
         void refreshTodayTotal()
+        void refreshStreakSummary()
         return
       }
 
@@ -130,7 +172,7 @@ export default function LogPage() {
     })
 
     return unsubscribe
-  }, [refreshExercises, refreshTodayTotal])
+  }, [refreshExercises, refreshStreakSummary, refreshTodayTotal])
 
   useEffect(() => {
     return () => {
@@ -213,6 +255,7 @@ export default function LogPage() {
     try {
       await logEntry(userId, activeExercise.id, repsValue)
       setTodayTotal((current) => current + repsValue)
+      void refreshStreakSummary()
       setActiveExercise(null)
       setReps(10)
       setError(null)
@@ -228,6 +271,25 @@ export default function LogPage() {
     return appCopy.logPage.buildLogHint(activeExercise.name)
   }, [activeExercise])
 
+  const visibleStreakSummary = useMemo(() => {
+    if (!userId) {
+      return null
+    }
+
+    if (streakSummary?.userId === userId) {
+      return streakSummary
+    }
+
+    return getUserStreakSummarySnapshot(userId) ?? createEmptyStreakSummary(userId)
+  }, [streakSummary, userId])
+
+  const streakTitle = getStreakTitle(visibleStreakSummary?.currentStreak ?? 0)
+  const streakStatus = visibleStreakSummary?.activeToday
+    ? appCopy.streaks.activeTodayStatus
+    : visibleStreakSummary?.atRiskToday
+      ? appCopy.streaks.atRiskTodayStatus
+      : appCopy.streaks.idleStatus
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-800 bg-gradient-to-br from-emerald-500/20 via-slate-900/70 to-slate-900 px-6 py-6 shadow-lg shadow-black/30">
@@ -240,6 +302,44 @@ export default function LogPage() {
         <p className="mt-2 text-sm text-slate-300">
           {appCopy.logPage.summaryDescription}
         </p>
+      </section>
+
+      <section className="rounded-3xl border border-slate-800 bg-slate-900/60 px-6 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">
+              {appCopy.streaks.eyebrow}
+            </p>
+            <h3 className="mt-2 text-3xl font-semibold text-slate-100">
+              {appCopy.streaks.buildDayCount(visibleStreakSummary?.currentStreak ?? 0)}
+            </h3>
+            <p className="mt-2 text-sm text-slate-400">{streakStatus}</p>
+          </div>
+
+          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200">
+            {streakTitle.label}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {appCopy.streaks.titleLabel}
+            </p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">
+              {streakTitle.label}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {appCopy.streaks.longestLabel}
+            </p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">
+              {appCopy.streaks.buildDayCount(visibleStreakSummary?.longestStreak ?? 0)}
+            </p>
+          </div>
+        </div>
       </section>
 
       <section>

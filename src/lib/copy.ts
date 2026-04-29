@@ -72,6 +72,19 @@ export const appCopy = {
       return `Log ${reps} reps`
     },
   },
+  streaks: {
+    eyebrow: 'Streak',
+    titleLabel: 'Current title',
+    currentLabel: 'Current streak',
+    longestLabel: 'Longest streak',
+    activeTodayStatus: 'Alive today. The streak is safe.',
+    atRiskTodayStatus:
+      'At risk today. One quick set keeps the streak alive.',
+    idleStatus: 'No active streak right now. Start a new run today.',
+    buildDayCount(days: number) {
+      return days === 1 ? '1 day' : `${days} days`
+    },
+  },
   settingsPage: {
     eyebrow: 'Control Center',
     title: 'Settings',
@@ -146,7 +159,7 @@ export const appCopy = {
     scopeLabel: 'Scope',
     scopeValue: 'Challenge only',
     scopeDescription:
-      'Daily 15:00 nudges and same-day overtaken alerts. No personal milestone spam.',
+      'Daily nudges, same-day overtaken alerts, and streak rescue warnings.',
     supportedBrowserDescription:
       'Use the deployed app to register the current browser for push.',
     unsupportedBrowserDescription:
@@ -183,6 +196,11 @@ export const appCopy = {
       title: 'Overtaken today',
       description:
         'Fires when somebody passes you on the today leaderboard and the cooldown allows it.',
+    },
+    streakAtRisk: {
+      title: 'Streak at risk',
+      description:
+        'Warns you when a live 7+ day streak has not been saved yet and the day is slipping away.',
     },
     errors: {
       unsupportedPush:

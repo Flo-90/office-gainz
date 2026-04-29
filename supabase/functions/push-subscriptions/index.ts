@@ -15,6 +15,7 @@ type ClientPreferences = {
   pushEnabled: boolean
   dailyNudge15h: boolean
   leaderboardOvertakenToday: boolean
+  streakAtRisk15h: boolean
 }
 
 type ActionBody =
@@ -66,6 +67,8 @@ async function savePreferences(
     leaderboard_overtaken_today:
       preferences.leaderboardOvertakenToday ??
       current.leaderboard_overtaken_today,
+    streak_at_risk_15h:
+      preferences.streakAtRisk15h ?? current.streak_at_risk_15h,
   }
 
   const { error } = await admin
@@ -105,6 +108,7 @@ async function buildState(
       pushEnabled: preferences.push_enabled,
       dailyNudge15h: preferences.daily_nudge_15h,
       leaderboardOvertakenToday: preferences.leaderboard_overtaken_today,
+      streakAtRisk15h: preferences.streak_at_risk_15h,
     },
     hasActiveSubscription: activeCount > 0,
     subscriptionCount: activeCount,

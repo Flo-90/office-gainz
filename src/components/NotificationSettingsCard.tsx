@@ -225,6 +225,24 @@ export default function NotificationSettingsCard() {
             className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-400 focus:ring-emerald-400"
           />
         </label>
+
+        <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4 text-sm">
+          <div>
+            <p className="font-semibold text-slate-100">{appCopy.notifications.streakAtRisk.title}</p>
+            <p className="mt-1 text-slate-400">
+              {appCopy.notifications.streakAtRisk.description}
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={pushState?.preferences.streakAtRisk15h ?? false}
+            disabled={loading || saving || !pushState}
+            onChange={(event) =>
+              void handlePreferenceToggle('streakAtRisk15h', event.target.checked)
+            }
+            className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-400 focus:ring-emerald-400"
+          />
+        </label>
       </div>
 
       {error ? (

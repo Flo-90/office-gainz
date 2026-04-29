@@ -6,6 +6,7 @@ export type NotificationPreferencesRow = {
   push_enabled: boolean
   daily_nudge_15h: boolean
   leaderboard_overtaken_today: boolean
+  streak_at_risk_15h: boolean
 }
 
 export type PushDeliveryConfigRow = {

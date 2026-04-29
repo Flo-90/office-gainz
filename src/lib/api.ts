@@ -4,6 +4,7 @@ import { startOfDay, startOfWeek } from './time'
 import type {
   Exercise,
   LeaderboardRow,
+  StreakSummary,
   Timeframe,
   UserExerciseBreakdownRow,
 } from './types'
@@ -36,8 +37,18 @@ type UserExerciseBreakdownRpcRow = {
   total_reps: number | string | null
 }
 
+type StreakSummaryRpcRow = {
+  user_id: string
+  current_streak: number | string | null
+  longest_streak: number | string | null
+  last_active_date: string | null
+  active_today: boolean | null
+  at_risk_today: boolean | null
+}
+
 const exercisesCache = createCacheEntry<Exercise[]>()
 const userTotalsCache = new Map<string, CacheEntry<number>>()
+const userStreakCache = new Map<string, CacheEntry<StreakSummary>>()
 const leaderboardCache = new Map<string, CacheEntry<LeaderboardRow[]>>()
 const userExerciseBreakdownCache = new Map<
   string,
@@ -100,6 +111,17 @@ function getUserTotalCacheEntry(userId: string, since?: Date) {
   if (!entry) {
     entry = createCacheEntry<number>()
     userTotalsCache.set(key, entry)
+  }
+
+  return entry
+}
+
+function getUserStreakCacheEntry(userId: string) {
+  let entry = userStreakCache.get(userId)
+
+  if (!entry) {
+    entry = createCacheEntry<StreakSummary>()
+    userStreakCache.set(userId, entry)
   }
 
   return entry
@@ -172,6 +194,10 @@ function invalidateEntriesCache() {
     entry.invalidated = true
   })
 
+  userStreakCache.forEach((entry) => {
+    entry.invalidated = true
+  })
+
   leaderboardCache.forEach((entry) => {
     entry.invalidated = true
   })
@@ -197,6 +223,10 @@ export function getExercisesSnapshot() {
 
 export function getUserTotalSnapshot(userId: string, since?: Date) {
   return getCacheSnapshot(userTotalsCache.get(getUserTotalCacheKey(userId, since)))
+}
+
+export function getUserStreakSummarySnapshot(userId: string) {
+  return getCacheSnapshot(userStreakCache.get(userId))
 }
 
 export function getLeaderboardSnapshot(
@@ -315,6 +345,45 @@ export async function fetchUserTotal(
       if (error) throw new Error(formatSupabaseErrorMessage(error))
 
       return (data ?? []).reduce((sum, row) => sum + row.reps, 0)
+    },
+    options,
+  )
+}
+
+export async function fetchUserStreakSummary(
+  userId: string,
+  options?: CacheOptions,
+): Promise<StreakSummary> {
+  return resolveCachedValue(
+    getUserStreakCacheEntry(userId),
+    async () => {
+      const { data, error } = await supabase.rpc('get_streak_summaries', {
+        filter_user_ids: [userId],
+      })
+
+      if (error) throw new Error(formatSupabaseErrorMessage(error))
+
+      const row = ((data ?? []) as StreakSummaryRpcRow[])[0]
+
+      if (!row) {
+        return {
+          userId,
+          currentStreak: 0,
+          longestStreak: 0,
+          lastActiveDate: null,
+          activeToday: false,
+          atRiskToday: false,
+        }
+      }
+
+      return {
+        userId: row.user_id,
+        currentStreak: Number(row.current_streak ?? 0),
+        longestStreak: Number(row.longest_streak ?? 0),
+        lastActiveDate: row.last_active_date,
+        activeToday: Boolean(row.active_today),
+        atRiskToday: Boolean(row.at_risk_today),
+      }
     },
     options,
   )

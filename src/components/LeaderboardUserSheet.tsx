@@ -1,5 +1,6 @@
 import { appCopy } from '../lib/copy'
-import type { UserExerciseBreakdownRow } from '../lib/types'
+import { getStreakTitle } from '../lib/streaks'
+import type { StreakSummary, UserExerciseBreakdownRow } from '../lib/types'
 
 type LeaderboardUserSheetProps = {
   user: {
@@ -11,6 +12,9 @@ type LeaderboardUserSheetProps = {
   currentSliceLabel: string
   currentSliceReps: number
   currentRank: number | null
+  streakSummary: StreakSummary | null
+  streakLoading: boolean
+  streakError: string | null
   breakdownRows: UserExerciseBreakdownRow[]
   loading: boolean
   error: string | null
@@ -34,6 +38,9 @@ export default function LeaderboardUserSheet({
   currentSliceLabel,
   currentSliceReps,
   currentRank,
+  streakSummary,
+  streakLoading,
+  streakError,
   breakdownRows,
   loading,
   error,
@@ -49,6 +56,12 @@ export default function LeaderboardUserSheet({
     0,
   )
   const maxReps = Math.max(...breakdownRows.map((row) => row.totalReps), 1)
+  const streakTitle = getStreakTitle(streakSummary?.currentStreak ?? 0)
+  const streakStatus = streakSummary?.activeToday
+    ? appCopy.streaks.activeTodayStatus
+    : streakSummary?.atRiskToday
+      ? appCopy.streaks.atRiskTodayStatus
+      : appCopy.streaks.idleStatus
 
   return (
     <div
@@ -95,7 +108,7 @@ export default function LeaderboardUserSheet({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               {appCopy.leaderboardPage.userSheet.currentSliceLabel}
@@ -118,6 +131,27 @@ export default function LeaderboardUserSheet({
             <p className="mt-1 text-2xl font-semibold text-slate-100">
               {currentRank ? `#${currentRank}` : '--'}
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {appCopy.streaks.eyebrow}
+            </p>
+            {streakLoading ? (
+              <p className="mt-2 text-sm font-semibold text-slate-300">
+                {appCopy.notifications.accountStatus.loading}
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 text-sm font-semibold text-emerald-200">
+                  {streakTitle.label}
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-slate-100">
+                  {appCopy.streaks.buildDayCount(streakSummary?.currentStreak ?? 0)}
+                </p>
+                <p className="mt-2 text-xs text-slate-400">{streakStatus}</p>
+              </>
+            )}
           </div>
         </div>
 
@@ -194,6 +228,12 @@ export default function LeaderboardUserSheet({
         {error ? (
           <div className="mt-4 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             {error}
+          </div>
+        ) : null}
+
+        {streakError ? (
+          <div className="mt-4 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {streakError}
           </div>
         ) : null}
       </div>

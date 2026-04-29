@@ -4,9 +4,11 @@ import { useAuth } from '../contexts/useAuth'
 import {
   fetchExercises,
   fetchLeaderboard,
+  fetchUserStreakSummary,
   fetchUserExerciseBreakdown,
   getExercisesSnapshot,
   getLeaderboardSnapshot,
+  getUserStreakSummarySnapshot,
   getUserExerciseBreakdownSnapshot,
   subscribeToDataUpdates,
 } from '../lib/api'
@@ -15,6 +17,7 @@ import type {
   Exercise,
   LeaderboardMode,
   LeaderboardRow,
+  StreakSummary,
   Timeframe,
   UserExerciseBreakdownRow,
 } from '../lib/types'
@@ -60,6 +63,9 @@ export default function LeaderboardPage() {
   const [breakdownRows, setBreakdownRows] = useState<UserExerciseBreakdownRow[]>([])
   const [breakdownLoading, setBreakdownLoading] = useState(false)
   const [breakdownError, setBreakdownError] = useState<string | null>(null)
+  const [selectedUserStreak, setSelectedUserStreak] = useState<StreakSummary | null>(null)
+  const [selectedUserStreakLoading, setSelectedUserStreakLoading] = useState(false)
+  const [selectedUserStreakError, setSelectedUserStreakError] = useState<string | null>(null)
 
   const activeExerciseId = mode === 'exercise' ? selectedExerciseId : null
   const activeExercise = useMemo(
@@ -112,6 +118,19 @@ export default function LeaderboardPage() {
     },
     [],
   )
+
+  const applySelectedUserStreakSnapshot = useCallback((userId: string) => {
+    const cachedSummary = getUserStreakSummarySnapshot(userId)
+
+    if (cachedSummary !== null) {
+      setSelectedUserStreak(cachedSummary)
+      setSelectedUserStreakLoading(false)
+      return
+    }
+
+    setSelectedUserStreak(null)
+    setSelectedUserStreakLoading(true)
+  }, [])
 
   const loadExerciseOptions = useCallback(async (options?: { force?: boolean }) => {
     if (getExercisesSnapshot() === null) {
@@ -191,6 +210,28 @@ export default function LeaderboardPage() {
     }
   }, [selectedUser, timeframe])
 
+  const refreshSelectedUserStreak = useCallback(async (options?: { force?: boolean }) => {
+    if (!selectedUser) return
+
+    if (getUserStreakSummarySnapshot(selectedUser.userId) === null) {
+      setSelectedUserStreakLoading(true)
+    }
+
+    try {
+      const summary = await fetchUserStreakSummary(selectedUser.userId, options)
+      setSelectedUserStreak(summary)
+      setSelectedUserStreakError(null)
+    } catch (err) {
+      setSelectedUserStreakError(
+        err instanceof Error
+          ? err.message
+          : appCopy.leaderboardPage.breakdownLoadError,
+      )
+    } finally {
+      setSelectedUserStreakLoading(false)
+    }
+  }, [selectedUser])
+
   const handleTimeframeChange = (nextTimeframe: Timeframe) => {
     setTimeframe(nextTimeframe)
     applyLeaderboardSnapshot(nextTimeframe, mode, selectedExerciseId)
@@ -229,11 +270,16 @@ export default function LeaderboardPage() {
       avatarUrl: row.avatarUrl,
     })
     setBreakdownError(null)
+    setSelectedUserStreakError(null)
     applyBreakdownSnapshot(row.userId, timeframe)
+    applySelectedUserStreakSnapshot(row.userId)
   }
 
   const handleCloseUserSheet = () => {
     setSelectedUser(null)
+    setSelectedUserStreak(null)
+    setSelectedUserStreakLoading(false)
+    setSelectedUserStreakError(null)
     setBreakdownRows([])
     setBreakdownLoading(false)
     setBreakdownError(null)
@@ -264,12 +310,13 @@ export default function LeaderboardPage() {
 
     const frame = window.requestAnimationFrame(() => {
       void refreshBreakdown()
+      void refreshSelectedUserStreak()
     })
 
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [refreshBreakdown, selectedUser])
+  }, [refreshBreakdown, refreshSelectedUserStreak, selectedUser])
 
   useEffect(() => {
     const unsubscribe = subscribeToDataUpdates((event) => {
@@ -277,6 +324,7 @@ export default function LeaderboardPage() {
         void refresh({ force: true })
         if (selectedUser) {
           void refreshBreakdown({ force: true })
+          void refreshSelectedUserStreak({ force: true })
         }
         return
       }
@@ -287,7 +335,7 @@ export default function LeaderboardPage() {
     })
 
     return unsubscribe
-  }, [loadExerciseOptions, refresh, refreshBreakdown, selectedUser])
+  }, [loadExerciseOptions, refresh, refreshBreakdown, refreshSelectedUserStreak, selectedUser])
 
   const currentUserId = session?.user.id
   const currentRank = useMemo(() => {
@@ -498,6 +546,9 @@ export default function LeaderboardPage() {
         currentSliceLabel={detailSliceLabel}
         currentSliceReps={detailSliceReps}
         currentRank={selectedUserCurrentRank}
+        streakSummary={selectedUserStreak}
+        streakLoading={selectedUserStreakLoading}
+        streakError={selectedUserStreakError}
         breakdownRows={breakdownRows}
         loading={breakdownLoading}
         error={breakdownError}

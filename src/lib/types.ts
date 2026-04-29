@@ -34,10 +34,20 @@ export type UserExerciseBreakdownRow = {
   totalReps: number
 }
 
+export type StreakSummary = {
+  userId: string
+  currentStreak: number
+  longestStreak: number
+  lastActiveDate: string | null
+  activeToday: boolean
+  atRiskToday: boolean
+}
+
 export type NotificationPreferences = {
   pushEnabled: boolean
   dailyNudge15h: boolean
   leaderboardOvertakenToday: boolean
+  streakAtRisk15h: boolean
 }
 
 export type PushState = {

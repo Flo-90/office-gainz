@@ -36,6 +36,15 @@ type LeaderboardRow = {
   totalReps: number
 }
 
+type StreakSummaryRow = {
+  user_id: string
+  current_streak: number | string | null
+  longest_streak: number | string | null
+  last_active_date: string | null
+  active_today: boolean | null
+  at_risk_today: boolean | null
+}
+
 type PushPayload = {
   title: string
   body: string
@@ -47,6 +56,8 @@ type PushPayload = {
 
 const DAILY_NUDGE_COOLDOWN_MINUTES = 24 * 60
 const OVERTAKEN_COOLDOWN_MINUTES = 90
+const STREAK_AT_RISK_COOLDOWN_MINUTES = 24 * 60
+const STREAK_AT_RISK_MIN_DAYS = 7
 
 function normalizeUser(row: EntryQueryRow) {
   return Array.isArray(row.user) ? row.user[0] ?? null : row.user
@@ -109,7 +120,10 @@ async function hasDedupeKey(
 async function hasRecentNotification(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
-  notificationType: 'daily_nudge_15h' | 'leaderboard_overtaken_today',
+  notificationType:
+    | 'daily_nudge_15h'
+    | 'leaderboard_overtaken_today'
+    | 'streak_at_risk_15h',
   minutes: number,
 ) {
   const cutoff = new Date(Date.now() - minutes * 60_000).toISOString()
@@ -181,6 +195,27 @@ async function loadPreferencesByUser(
   )
 }
 
+async function loadStreaksByUser(
+  admin: ReturnType<typeof createAdminClient>,
+  userIds: string[],
+) {
+  if (userIds.length === 0) {
+    return new Map<string, StreakSummaryRow>()
+  }
+
+  const { data, error } = await admin.rpc('get_streak_summaries', {
+    filter_user_ids: userIds,
+  })
+
+  if (error) {
+    throw new Error(`Failed to load streak summaries: ${error.message}`)
+  }
+
+  return new Map(
+    ((data as StreakSummaryRow[] | null) ?? []).map((row) => [row.user_id, row]),
+  )
+}
+
 async function updateSubscriptionResult(
   admin: ReturnType<typeof createAdminClient>,
   subscriptionId: string,
@@ -199,7 +234,10 @@ async function updateSubscriptionResult(
 async function deliverNotification(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
-  notificationType: 'daily_nudge_15h' | 'leaderboard_overtaken_today',
+  notificationType:
+    | 'daily_nudge_15h'
+    | 'leaderboard_overtaken_today'
+    | 'streak_at_risk_15h',
   dedupeKey: string,
   subscriptions: StoredSubscriptionRow[],
   payload: PushPayload,
@@ -297,6 +335,20 @@ function buildOvertakenPayload(
   }
 }
 
+function buildStreakAtRiskPayload(
+  streakDays: number,
+  dayKey: string,
+): PushPayload {
+  return {
+    title: pushCopy.streakAtRisk.title,
+    body: pushCopy.streakAtRisk.body(streakDays),
+    tag: `streak-at-risk-${dayKey}`,
+    url: '/',
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+  }
+}
+
 async function handleDailyNudgeScan(
   admin: ReturnType<typeof createAdminClient>,
 ) {
@@ -317,8 +369,7 @@ async function handleDailyNudgeScan(
     admin
       .from('notification_preferences')
       .select('*')
-      .eq('push_enabled', true)
-      .eq('daily_nudge_15h', true),
+      .eq('push_enabled', true),
     admin
       .from('entries')
       .select('user_id, created_at')
@@ -348,6 +399,11 @@ async function handleDailyNudgeScan(
     }
   }
 
+  const streaksByUser = await loadStreaksByUser(
+    admin,
+    preferences.map((row) => row.user_id),
+  )
+
   const lastEntryAtByUser = new Map<string, string>()
   const todayUsers = new Set<string>()
 
@@ -373,6 +429,60 @@ async function handleDailyNudgeScan(
   let considered = 0
 
   for (const preference of preferences) {
+    const subscriptions = subscriptionsByUser.get(preference.user_id) ?? []
+    if (subscriptions.length === 0) {
+      continue
+    }
+
+    const streakSummary = streaksByUser.get(preference.user_id)
+    const qualifiesForStreakRisk =
+      preference.streak_at_risk_15h &&
+      Boolean(streakSummary?.at_risk_today) &&
+      Number(streakSummary?.current_streak ?? 0) >= STREAK_AT_RISK_MIN_DAYS
+
+    if (qualifiesForStreakRisk) {
+      const dedupeKey = `streak_at_risk_15h:${todayKey}:${preference.user_id}`
+
+      if (
+        !(await hasDedupeKey(admin, dedupeKey)) &&
+        !(await hasRecentNotification(
+          admin,
+          preference.user_id,
+          'streak_at_risk_15h',
+          STREAK_AT_RISK_COOLDOWN_MINUTES,
+        ))
+      ) {
+        considered += 1
+
+        const delivered = await deliverNotification(
+          admin,
+          preference.user_id,
+          'streak_at_risk_15h',
+          dedupeKey,
+          subscriptions,
+          buildStreakAtRiskPayload(
+            Number(streakSummary?.current_streak ?? 0),
+            todayKey,
+          ),
+          {
+            currentStreak: Number(streakSummary?.current_streak ?? 0),
+            lastActiveDate: streakSummary?.last_active_date ?? null,
+            todayKey,
+          },
+        )
+
+        if (delivered) {
+          sent += 1
+        }
+      }
+
+      continue
+    }
+
+    if (!preference.daily_nudge_15h) {
+      continue
+    }
+
     const lastEntryAt = lastEntryAtByUser.get(preference.user_id)
     if (!lastEntryAt) {
       continue
@@ -392,11 +502,6 @@ async function handleDailyNudgeScan(
     )
 
     if (otherPeopleToday.length === 0) {
-      continue
-    }
-
-    const subscriptions = subscriptionsByUser.get(preference.user_id) ?? []
-    if (subscriptions.length === 0) {
       continue
     }
 
