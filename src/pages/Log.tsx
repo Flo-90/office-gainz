@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import NotificationSettingsCard from '../components/NotificationSettingsCard'
 import { useAuth } from '../contexts/useAuth'
 import { fetchExercises, fetchUserTotal, logEntry } from '../lib/api'
 import { appCopy } from '../lib/copy'
@@ -109,8 +108,6 @@ export default function LogPage() {
           {appCopy.logPage.summaryDescription}
         </p>
       </section>
-
-      <NotificationSettingsCard />
 
       <section>
         <div className="flex items-center justify-between">

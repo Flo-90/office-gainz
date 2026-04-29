@@ -6,6 +6,7 @@ import ExercisesPage from './pages/Exercises'
 import LeaderboardPage from './pages/Leaderboard'
 import LoginPage from './pages/Login'
 import LogPage from './pages/Log'
+import SettingsPage from './pages/Settings'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route index element={<LogPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="exercises" element={<ExercisesPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -12,10 +12,14 @@ export const appCopy = {
     log: 'Log',
     leaderboard: 'Leaderboard',
     exercises: 'Exercises',
+    settings: 'Settings',
   },
   layout: {
-    tagline: 'Der Kessel muss brennen!',
+    tagline: 'DER KESSEL MUSS BRENNEN!',
     authWarningPrefix: 'Auth warning:',
+    profileMenuButtonLabel: 'Open profile menu',
+    profileMenuHint: 'Settings and sign out',
+    profileMenuTitle: 'Account',
   },
   protectedRoute: {
     loading: 'Loading OfficeGainz...',
@@ -55,6 +59,12 @@ export const appCopy = {
     buildLogHint(exerciseName: string) {
       return `Log ${exerciseName}`
     },
+  },
+  settingsPage: {
+    eyebrow: 'Control Center',
+    title: 'Settings',
+    subtitle:
+      'Manage push alerts here without cluttering the quick logging flow.',
   },
   exercisesPage: {
     title: 'Exercises',
