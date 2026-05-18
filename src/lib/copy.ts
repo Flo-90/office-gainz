@@ -81,8 +81,62 @@ export const appCopy = {
     atRiskTodayStatus:
       'At risk today. One quick set keeps the streak alive.',
     idleStatus: 'No active streak right now. Start a new run today.',
+    restDayManualStatus: 'Rest day today. The streak is safe.',
+    restDayRecurringStatus: 'Recurring rest day today. The streak is safe.',
     buildDayCount(days: number) {
       return days === 1 ? '1 day' : `${days} days`
+    },
+  },
+  restDays: {
+    badgeManual: 'Rest day (manual)',
+    badgeRecurring: 'Rest day (recurring)',
+    markButton: 'Rest day today',
+    marking: 'Marking…',
+    unmarkButton: 'Unmark rest day',
+    unmarking: 'Unmarking…',
+    settingsLink: 'Recurring rest days',
+    loggingBlockedTitle: 'Today is a rest day.',
+    loggingBlockedHint:
+      'Unmark the rest day above before logging reps.',
+    buildQuotaLabel(used: number, quota: number) {
+      const safeUsed = Math.min(used, quota)
+      return `${safeUsed} / ${quota} rest days this week`
+    },
+    settingsModal: {
+      title: 'Recurring rest days',
+      subtitle:
+        'Pick weekdays that should always count as rest. Up to 3 total, shared with manual rest days.',
+      selectedLabel(count: number) {
+        return `${count} / 3 selected`
+      },
+      removeWarning:
+        'Removing a weekday may shorten your current streak (past instances stop counting).',
+      saveButton: 'Save',
+      savingButton: 'Saving…',
+      cancelButton: 'Cancel',
+      weekdays: {
+        short: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+        long: [
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday',
+        ],
+      },
+      saveError: 'Failed to update recurring rest days.',
+    },
+    errors: {
+      conflictEntryExists:
+        'You already logged reps today — no rest day needed.',
+      alreadySet: 'Today is already marked as a rest day.',
+      alreadyRecurring:
+        'Today is a recurring rest day. Edit recurring days to change.',
+      quotaExceeded:
+        'You have used all 3 rest days for this ISO week.',
+      generic: 'Could not update rest day.',
     },
   },
   settingsPage: {

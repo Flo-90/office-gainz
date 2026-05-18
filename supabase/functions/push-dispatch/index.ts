@@ -43,6 +43,11 @@ type StreakSummaryRow = {
   last_active_date: string | null
   active_today: boolean | null
   at_risk_today: boolean | null
+  today_is_rest_day: boolean | null
+  today_rest_day_source: string | null
+  rest_days_used_this_week: number | string | null
+  rest_days_quota: number | string | null
+  recurring_rest_weekdays: number[] | null
 }
 
 type PushPayload = {
@@ -435,6 +440,11 @@ async function handleDailyNudgeScan(
     }
 
     const streakSummary = streaksByUser.get(preference.user_id)
+
+    if (streakSummary?.today_is_rest_day) {
+      continue
+    }
+
     const qualifiesForStreakRisk =
       preference.streak_at_risk_15h &&
       Boolean(streakSummary?.at_risk_today) &&

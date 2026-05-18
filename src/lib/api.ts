@@ -4,6 +4,7 @@ import { startOfDay, startOfWeek } from './time'
 import type {
   Exercise,
   LeaderboardRow,
+  RestDaySource,
   StreakSummary,
   Timeframe,
   UserExerciseBreakdownRow,
@@ -44,6 +45,52 @@ type StreakSummaryRpcRow = {
   last_active_date: string | null
   active_today: boolean | null
   at_risk_today: boolean | null
+  today_is_rest_day: boolean | null
+  today_rest_day_source: string | null
+  rest_days_used_this_week: number | string | null
+  rest_days_quota: number | string | null
+  recurring_rest_weekdays: number[] | null
+}
+
+function mapStreakSummaryRow(
+  userId: string,
+  row: StreakSummaryRpcRow | undefined,
+): StreakSummary {
+  if (!row) {
+    return {
+      userId,
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActiveDate: null,
+      activeToday: false,
+      atRiskToday: false,
+      todayIsRestDay: false,
+      todayRestDaySource: null,
+      restDaysUsedThisWeek: 0,
+      restDaysQuota: 3,
+      recurringRestWeekdays: [],
+    }
+  }
+
+  const source = row.today_rest_day_source
+  const todayRestDaySource: RestDaySource | null =
+    source === 'manual' || source === 'recurring' ? source : null
+
+  return {
+    userId: row.user_id,
+    currentStreak: Number(row.current_streak ?? 0),
+    longestStreak: Number(row.longest_streak ?? 0),
+    lastActiveDate: row.last_active_date,
+    activeToday: Boolean(row.active_today),
+    atRiskToday: Boolean(row.at_risk_today),
+    todayIsRestDay: Boolean(row.today_is_rest_day),
+    todayRestDaySource,
+    restDaysUsedThisWeek: Number(row.rest_days_used_this_week ?? 0),
+    restDaysQuota: Number(row.rest_days_quota ?? 3),
+    recurringRestWeekdays: (row.recurring_rest_weekdays ?? [])
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value)),
+  }
 }
 
 const exercisesCache = createCacheEntry<Exercise[]>()
@@ -364,29 +411,40 @@ export async function fetchUserStreakSummary(
       if (error) throw new Error(formatSupabaseErrorMessage(error))
 
       const row = ((data ?? []) as StreakSummaryRpcRow[])[0]
-
-      if (!row) {
-        return {
-          userId,
-          currentStreak: 0,
-          longestStreak: 0,
-          lastActiveDate: null,
-          activeToday: false,
-          atRiskToday: false,
-        }
-      }
-
-      return {
-        userId: row.user_id,
-        currentStreak: Number(row.current_streak ?? 0),
-        longestStreak: Number(row.longest_streak ?? 0),
-        lastActiveDate: row.last_active_date,
-        activeToday: Boolean(row.active_today),
-        atRiskToday: Boolean(row.at_risk_today),
-      }
+      return mapStreakSummaryRow(userId, row)
     },
     options,
   )
+}
+
+export async function markRestDayToday(): Promise<void> {
+  const { error } = await supabase.rpc('mark_rest_day_today')
+  if (error) throw new Error(formatSupabaseErrorMessage(error))
+
+  notifyEntriesChanged()
+}
+
+export async function unmarkRestDayToday(): Promise<void> {
+  const { error } = await supabase.rpc('unmark_rest_day_today')
+  if (error) throw new Error(formatSupabaseErrorMessage(error))
+
+  notifyEntriesChanged()
+}
+
+export async function setRecurringRestWeekdays(
+  weekdays: number[],
+): Promise<number[]> {
+  const { data, error } = await supabase.rpc('set_recurring_rest_weekdays', {
+    weekdays,
+  })
+
+  if (error) throw new Error(formatSupabaseErrorMessage(error))
+
+  notifyEntriesChanged()
+
+  return ((data ?? []) as Array<number | string>)
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value))
 }
 
 export async function fetchLeaderboard(

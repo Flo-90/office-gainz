@@ -34,6 +34,8 @@ export type UserExerciseBreakdownRow = {
   totalReps: number
 }
 
+export type RestDaySource = 'manual' | 'recurring'
+
 export type StreakSummary = {
   userId: string
   currentStreak: number
@@ -41,6 +43,11 @@ export type StreakSummary = {
   lastActiveDate: string | null
   activeToday: boolean
   atRiskToday: boolean
+  todayIsRestDay: boolean
+  todayRestDaySource: RestDaySource | null
+  restDaysUsedThisWeek: number
+  restDaysQuota: number
+  recurringRestWeekdays: number[]
 }
 
 export type NotificationPreferences = {
