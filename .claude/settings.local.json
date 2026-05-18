@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__supabase__list_tables",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__get_advisors",
+      "Bash(git -C /home/dev/repos/office-gainz status --short)",
+      "Bash(supabase migration *)",
+      "Bash(supabase db *)",
+      "mcp__supabase__execute_sql",
+      "Bash(supabase projects *)",
+      "Bash(supabase start *)",
+      "Bash(supabase status *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "supabase",
+    "supabase_locale"
+  ]
+}

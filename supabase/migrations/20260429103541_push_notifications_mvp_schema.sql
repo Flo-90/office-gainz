@@ -1,79 +1,3 @@
-create extension if not exists "pgcrypto";
-
-create table if not exists public.users (
-  id uuid primary key references auth.users (id) on delete cascade,
-  email text not null,
-  name text,
-  avatar_url text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.exercises (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  created_by uuid references public.users (id) on delete set null,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.entries (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users (id) on delete cascade,
-  exercise_id uuid not null references public.exercises (id) on delete cascade,
-  reps integer not null check (reps > 0),
-  created_at timestamptz not null default now()
-);
-
-create index if not exists entries_user_id_idx on public.entries (user_id);
-create index if not exists entries_exercise_id_idx on public.entries (exercise_id);
-create index if not exists entries_created_at_idx on public.entries (created_at);
-
-alter table public.users enable row level security;
-alter table public.exercises enable row level security;
-alter table public.entries enable row level security;
-
-create policy "Users can view all profiles"
-  on public.users
-  for select
-  to authenticated
-  using (true);
-
-create policy "Users can insert their profile"
-  on public.users
-  for insert
-  to authenticated
-  with check (id = auth.uid());
-
-create policy "Users can update their profile"
-  on public.users
-  for update
-  to authenticated
-  using (id = auth.uid())
-  with check (id = auth.uid());
-
-create policy "Exercises are readable by all authenticated"
-  on public.exercises
-  for select
-  to authenticated
-  using (true);
-
-create policy "Users can add exercises"
-  on public.exercises
-  for insert
-  to authenticated
-  with check (created_by = auth.uid());
-
-create policy "Entries are readable by all authenticated"
-  on public.entries
-  for select
-  to authenticated
-  using (true);
-
-create policy "Users can add their entries"
-  on public.entries
-  for insert
-  to authenticated
-  with check (user_id = auth.uid());
-
 create extension if not exists pg_net with schema extensions;
 create extension if not exists pg_cron with schema pg_catalog;
 
@@ -82,13 +6,9 @@ create table if not exists public.notification_preferences (
   push_enabled boolean not null default false,
   daily_nudge_15h boolean not null default true,
   leaderboard_overtaken_today boolean not null default true,
-  streak_at_risk_15h boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
-alter table public.notification_preferences
-  add column if not exists streak_at_risk_15h boolean not null default true;
 
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -117,29 +37,12 @@ create table if not exists public.notification_log (
   user_id uuid not null references public.users (id) on delete cascade,
   notification_type text not null
     check (
-      notification_type in (
-        'daily_nudge_15h',
-        'leaderboard_overtaken_today',
-        'streak_at_risk_15h'
-      )
+      notification_type in ('daily_nudge_15h', 'leaderboard_overtaken_today')
     ),
   dedupe_key text not null unique,
   payload jsonb not null default '{}'::jsonb,
   sent_at timestamptz not null default now()
 );
-
-alter table public.notification_log
-  drop constraint if exists notification_log_notification_type_check;
-
-alter table public.notification_log
-  add constraint notification_log_notification_type_check
-  check (
-    notification_type in (
-      'daily_nudge_15h',
-      'leaderboard_overtaken_today',
-      'streak_at_risk_15h'
-    )
-  );
 
 create index if not exists notification_log_user_id_type_sent_at_idx
   on public.notification_log (user_id, notification_type, sent_at desc);
@@ -284,99 +187,6 @@ $$;
 revoke all on function public.get_push_public_key() from public;
 grant execute on function public.get_push_public_key() to authenticated;
 
-create or replace function public.get_streak_summaries(
-  filter_user_ids uuid[] default null
-)
-returns table (
-  user_id uuid,
-  current_streak integer,
-  longest_streak integer,
-  last_active_date date,
-  active_today boolean,
-  at_risk_today boolean
-)
-language sql
-security invoker
-set search_path = public
-as $$
-  with berlin_today as (
-    select timezone('Europe/Berlin', now())::date as day
-  ),
-  activity_days as (
-    select
-      entries.user_id,
-      timezone('Europe/Berlin', entries.created_at)::date as activity_day
-    from public.entries as entries
-    where filter_user_ids is null
-      or entries.user_id = any(filter_user_ids)
-    group by entries.user_id, timezone('Europe/Berlin', entries.created_at)::date
-  ),
-  ordered_days as (
-    select
-      activity_days.user_id,
-      activity_days.activity_day,
-      row_number() over (
-        partition by activity_days.user_id
-        order by activity_days.activity_day
-      )::integer as day_index
-    from activity_days
-  ),
-  streak_groups as (
-    select
-      ordered_days.user_id,
-      ordered_days.activity_day,
-      ordered_days.activity_day - ordered_days.day_index as streak_group
-    from ordered_days
-  ),
-  streaks as (
-    select
-      streak_groups.user_id,
-      min(streak_groups.activity_day) as start_day,
-      max(streak_groups.activity_day) as end_day,
-      count(*)::integer as streak_length
-    from streak_groups
-    group by streak_groups.user_id, streak_groups.streak_group
-  ),
-  latest_activity as (
-    select
-      activity_days.user_id,
-      max(activity_days.activity_day) as last_active_date
-    from activity_days
-    group by activity_days.user_id
-  )
-  select
-    latest_activity.user_id,
-    coalesce(current_streak.streak_length, 0) as current_streak,
-    coalesce(longest_streak.streak_length, 0) as longest_streak,
-    latest_activity.last_active_date,
-    latest_activity.last_active_date = berlin_today.day as active_today,
-    latest_activity.last_active_date = berlin_today.day - 1
-      and coalesce(current_streak.streak_length, 0) > 0 as at_risk_today
-  from latest_activity
-  cross join berlin_today
-  left join lateral (
-    select streaks.streak_length
-    from streaks
-    where streaks.user_id = latest_activity.user_id
-      and streaks.end_day = latest_activity.last_active_date
-      and latest_activity.last_active_date >= berlin_today.day - 1
-    order by streaks.end_day desc
-    limit 1
-  ) as current_streak on true
-  left join lateral (
-    select max(streaks.streak_length) as streak_length
-    from streaks
-    where streaks.user_id = latest_activity.user_id
-  ) as longest_streak on true
-  order by
-    coalesce(current_streak.streak_length, 0) desc,
-    coalesce(longest_streak.streak_length, 0) desc,
-    latest_activity.user_id;
-$$;
-
-revoke all on function public.get_streak_summaries(uuid[]) from public;
-grant execute on function public.get_streak_summaries(uuid[]) to authenticated;
-
 create or replace function public.configure_push_delivery(
   config_project_url text,
   config_function_auth text,
@@ -497,66 +307,3 @@ create trigger entries_enqueue_push_dispatch
 after insert on public.entries
 for each row
 execute function public.enqueue_push_dispatch_for_entry();
-
-create or replace function public.get_leaderboard_totals(
-  filter_since timestamptz default null,
-  filter_exercise_id uuid default null
-)
-returns table (
-  user_id uuid,
-  name text,
-  avatar_url text,
-  total_reps bigint
-)
-language sql
-security invoker
-set search_path = public
-as $$
-  select
-    entries.user_id,
-    coalesce(users.name, 'Mystery Lifter') as name,
-    users.avatar_url,
-    sum(entries.reps)::bigint as total_reps
-  from public.entries as entries
-  join public.users as users
-    on users.id = entries.user_id
-  where (filter_since is null or entries.created_at >= filter_since)
-    and (
-      filter_exercise_id is null
-      or entries.exercise_id = filter_exercise_id
-    )
-  group by entries.user_id, users.name, users.avatar_url
-  order by sum(entries.reps) desc, coalesce(users.name, 'Mystery Lifter') asc;
-$$;
-
-revoke all on function public.get_leaderboard_totals(timestamptz, uuid) from public;
-grant execute on function public.get_leaderboard_totals(timestamptz, uuid) to authenticated;
-
-create or replace function public.get_user_exercise_breakdown(
-  filter_user_id uuid,
-  filter_since timestamptz default null
-)
-returns table (
-  exercise_id uuid,
-  exercise_name text,
-  total_reps bigint
-)
-language sql
-security invoker
-set search_path = public
-as $$
-  select
-    exercises.id as exercise_id,
-    exercises.name as exercise_name,
-    sum(entries.reps)::bigint as total_reps
-  from public.entries as entries
-  join public.exercises as exercises
-    on exercises.id = entries.exercise_id
-  where entries.user_id = filter_user_id
-    and (filter_since is null or entries.created_at >= filter_since)
-  group by exercises.id, exercises.name
-  order by sum(entries.reps) desc, exercises.name asc;
-$$;
-
-revoke all on function public.get_user_exercise_breakdown(uuid, timestamptz) from public;
-grant execute on function public.get_user_exercise_breakdown(uuid, timestamptz) to authenticated;
