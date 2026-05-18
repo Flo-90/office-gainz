@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import InstallPrompt from './components/InstallPrompt'
+import ChangelogPage from './pages/Changelog'
 import ExercisesPage from './pages/Exercises'
 import LeaderboardPage from './pages/Leaderboard'
 import LoginPage from './pages/Login'
@@ -24,6 +25,7 @@ function App() {
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="exercises" element={<ExercisesPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="changelog" element={<ChangelogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

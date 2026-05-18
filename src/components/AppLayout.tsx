@@ -189,6 +189,14 @@ export default function AppLayout() {
                   >
                     {appCopy.navigation.settings}
                   </NavLink>
+                  <NavLink
+                    to="/changelog"
+                    onClick={closeProfileMenu}
+                    className="mt-1 block rounded-xl px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+                    role="menuitem"
+                  >
+                    {appCopy.navigation.changelog}
+                  </NavLink>
                   <button
                     type="button"
                     onClick={() => {

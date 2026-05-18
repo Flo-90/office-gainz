@@ -13,6 +13,7 @@ export const appCopy = {
     leaderboard: 'Leaderboard',
     exercises: 'Exercises',
     settings: 'Settings',
+    changelog: 'Changelog',
   },
   layout: {
     tagline: 'DER KESSEL MUSS BRENNEN!',
@@ -49,6 +50,8 @@ export const appCopy = {
       'Refresh once to pull the latest changes into the installed app.',
     refreshButton: 'Refresh app',
     laterButton: 'Later',
+    whatsNewLabel: 'What’s new',
+    viewAllLink: 'See all changes →',
   },
   logPage: {
     todayLabel: 'Today',
@@ -144,6 +147,13 @@ export const appCopy = {
     title: 'Settings',
     subtitle:
       'Manage push alerts here without cluttering the quick logging flow.',
+  },
+  changelogPage: {
+    eyebrow: 'Release notes',
+    title: 'Changelog',
+    subtitle: 'Everything that has shipped, newest first.',
+    loading: 'Loading changelog…',
+    empty: 'No changelog entries yet.',
   },
   exercisesPage: {
     title: 'Exercises',
