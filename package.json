@@ -10,7 +10,8 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sbom": "pnpm dlx @cyclonedx/cdxgen@latest -o sbom.json -t javascript"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
